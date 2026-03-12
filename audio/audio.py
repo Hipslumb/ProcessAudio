@@ -1,55 +1,53 @@
 ﻿import sys
 import locale
-sys.stdout.reconfigure(encoding='cp1251')
-
 import pyaudio
 import wave
-import time
-import tkinter
 import os
 import keyboard
 
-import numpy as np
+sys.stdout.reconfigure(encoding='cp1251')
 
-p = pyaudio.PyAudio()
-
+CHUNK = 1024    
+FORMAT = pyaudio.paInt16        
+CHANNELS = 1
+RATE = 44100                    
+RECORD_SECONDS = 5  
+DEVICE = 0
 
 class MicrophoneData():
-    def __init__(self):
-        # for i in range (p.get_device_count()):
-        #     print (i,p.get_device_info_by_index(i)['name'])
 
+    def __init__(self):
         self.record()
         
     def record(self):
-        p = pyaudio.PyAudio()
-        stream = p.open(
-            rate = 44100,
-            format=pyaudio.paInt16,
-            channels=1,
-            frames_per_buffer=1024,
-            input=True,
-            input_device_index=5
-        )
 
-        sounds = []
+        p = pyaudio.PyAudio()
+
+        stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, input_device_index=DEVICE)
+
+        frames = []
         print("Press ESC to stop recording audio")
         flag = False
 
         while True:
+            data = stream.read(CHUNK)
+            frames.append(data)
             name = keyboard.read_key()
-            now = name
             if name!='esc':
+
                 if not flag and keyboard.is_pressed(name):
-                    data = stream.read(1024)
-                    sounds.append(data)
+                    data = stream.read(CHUNK)
+                    frames.append(data)
                     flag = True
+
                 elif flag and keyboard.is_pressed(name):
-                    data = stream.read(1024)
-                    sounds.append(data)
+                    data = stream.read(CHUNK)
+                    frames.append(data)
+
                 elif flag and not keyboard.is_pressed(name):  
-                    self.save_audio(name,sounds)
-                    sounds = []
+                    self.save_audio(name,frames,p)
+                    frames = []
+
             if keyboard.is_pressed('esc'):
                 break
         print("END")
@@ -58,24 +56,24 @@ class MicrophoneData():
         stream.close()
         p.terminate()
 
-    def save_audio(self,name, sounds):
-        if not os.path.exists('key_sounds'):
-            os.makedirs('key_sounds')
+    def save_audio(self, name, frames,p):
+        if not os.path.exists('key_frames'):
+            os.makedirs('key_frames')
         
         exists = True
         i=1
         while exists:
-            if os.path.exists(f'key_sounds/{name}{i}.wav'):
+            if os.path.exists(f'key_frames/{name}{i}.wav'):
                 i+=1
             else:
                 exists=False
-        name = f'key_sounds/{name}{i}.wav'
+        name = f'key_frames/{name}{i}.wav'
 
         file = wave.open(name,'wb')
-        file.setnchannels(1)
-        file.setsampwidth(p.get_sample_size(pyaudio.paInt16))
-        file.setframerate(44100)
-        file.writeframes(b''.join(sounds))
+        file.setnchannels(CHANNELS)
+        file.setsampwidth(p.get_sample_size(FORMAT))
+        file.setframerate(RATE)
+        file.writeframes(b''.join(frames))
         file.close()
 
 MicrophoneData()

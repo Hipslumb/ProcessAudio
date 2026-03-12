@@ -11,6 +11,7 @@
     <OutputPath>.</OutputPath>
     <Name>audio</Name>
     <RootNamespace>audio</RootNamespace>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,6 +23,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="audio.py" />
+    <Compile Include="audioTest.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
