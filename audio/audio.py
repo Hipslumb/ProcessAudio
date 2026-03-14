@@ -12,7 +12,7 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100                    
 RECORD_SECONDS = 5  
-DEVICE = 0
+DEVICE = 5
 
 class MicrophoneData():
 
@@ -26,29 +26,17 @@ class MicrophoneData():
         stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, input_device_index=DEVICE)
 
         frames = []
-        print("Press ESC to stop recording audio")
-        flag = False
-
+        print("Press key that you want to record, then press it again")
+        print("Press ESC to stop recording")
+        # we create a name for the file
+        name = keyboard.read_key()
+        # continue recording (you need to press again)
         while True:
             data = stream.read(CHUNK)
             frames.append(data)
-            name = keyboard.read_key()
-            if name!='esc':
-
-                if not flag and keyboard.is_pressed(name):
-                    data = stream.read(CHUNK)
-                    frames.append(data)
-                    flag = True
-
-                elif flag and keyboard.is_pressed(name):
-                    data = stream.read(CHUNK)
-                    frames.append(data)
-
-                elif flag and not keyboard.is_pressed(name):  
-                    self.save_audio(name,frames,p)
-                    frames = []
-
+            # stop recording after pressing esc
             if keyboard.is_pressed('esc'):
+                self.save_audio(name,frames,p)
                 break
         print("END")
 
