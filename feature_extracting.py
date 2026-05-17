@@ -7,6 +7,7 @@ from matplotlib.colors import Normalize
 import os
 import csv
 import shutil
+import librosa
 
 # Тестовая функция для визуализации сигнала и его спектра
 def plot_keypress(filepath, show_spectrum= True):
@@ -42,9 +43,6 @@ def plot_keypress(filepath, show_spectrum= True):
     plt.tight_layout()
     plt.show()
 
-
-
-
 # Считает энергию сигнала для заданной величины окна
 def ste(signal, sampling_rate, window_ms = 20, shift_ms = 10, smooth = False, visualize = False):
     window_len = int(window_ms * sampling_rate / 1000)
@@ -79,10 +77,8 @@ def ste(signal, sampling_rate, window_ms = 20, shift_ms = 10, smooth = False, vi
     return ste
 
 
-
-
-
 def detect_keypress(signal, sampling_rate, threshold = 0.2, window_ms = 20, shift_ms = 10, pad_ms = 40, visualize = True):
+   
     ste_vals = ste(signal, sampling_rate, window_ms, shift_ms, False, False)
     key_frames = np.asarray(ste_vals > np.max(ste_vals) * threshold).nonzero()[0]
 
@@ -135,7 +131,8 @@ def cut_peak(signal, sampling_rate, visualize = True):
 
     return peak_signal
 
-def dff_features(signal, normalize = True, logarithmize = True, weight = 5, offset = 5):
+def dff_features(signal, sr, normalize=False, logarithmize=True, weight=5, offset=5):    
+
     spectrum = np.abs(dpf.rfft(signal))
     spectrum = spectrum[:1024]
 
@@ -153,49 +150,34 @@ def dff_features(signal, normalize = True, logarithmize = True, weight = 5, offs
 
         spectrum = (spectrum - min_val) / (max_val - min_val) * 2 - 1
 
+    mfcc = librosa.feature.mfcc(y=signal.astype(float), sr=sr, n_mfcc=40)
+    mfcc_features = np.concatenate([np.mean(mfcc, axis=1), np.std(mfcc, axis=1)])
 
-    return spectrum
+    return np.concatenate([spectrum, mfcc_features])  # 1024 + 80 = 1104
 
 
-def build_dataset(folderpath, output_csv = 'dataset.csv'):
-    subfolders = [str(i) for i in range(10)] + [chr(j) for j in range(97, 101)] + ['space']
-
+def build_dataset(folderpath, output_csv='dataset.csv'):
+    subfolders = [str(i) for i in range(10)] + [chr(j) for j in range(97, 124)] + ['space']
     with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        header = [f'feature_{i}' for i in range(1, 1025)] + ['key']
+        
+        # Обновлённый заголовок
+        fft_cols = [f'fft_{i}' for i in range(1024)]
+        mfcc_cols = [f'mfcc_{i}' for i in range(80)]
+        header = fft_cols + mfcc_cols + ['key']
         writer.writerow(header)
-
+        
         for foldername in subfolders:
             for i in range(1, 101):
-                filepath = f'{folderpath}/{foldername}/{foldername}_{i}.wav'
-                signal, sr = sf.read(filepath)
+                filepath = f'{folderpath}/{foldername}_{i}.wav'
+                try:
+                    signal, sr = sf.read(filepath)
+                except Exception:
+                    continue
                 peak_signal = cut_peak(signal, sr, visualize=False)
-                features = dff_features(peak_signal)
-                if len(features) == 1024:
-                    features = list(features)
-                    if foldername in [str(i) for i in range(10)]:
-                        key = '_' + foldername
-                    else:
-                        key = foldername
-                    row = features + [key]
-                    writer.writerow(row)
+                features = dff_features(peak_signal, sr)  # передаём sr
+                if len(features) == 1104:                  # обновлённая проверка
+                    key = '_' + foldername if foldername.isdigit() else foldername
+                    writer.writerow(list(features) + [key])
 
-# def fix_a(folderpath = 'data/a/', outpath = 'data/fixed_a/'):
-#     if not os.path.exists(outpath):
-#         os.makedirs(outpath)
-#     for i in range(1, 341):
-#         filepath = f'{folderpath}ф_{i}.wav'
-#         newpath = f'{outpath}a_{i+22}.wav'
-#         shutil.copy2(filepath, newpath)
-
-
-
-
-
-#plot_keypress('space/space_8.wav')
-
-# signal, sr = sf.read('a/a_8.wav')
-# press_signal = cut_peak(signal, sr, 0.01)
-
-build_dataset('data', 'dataset.csv')
-
+build_dataset('dataset', 'dataset.csv')

@@ -16,7 +16,7 @@ CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 1
+RECORD_SECONDS = 5
 
 
 class MicrophoneData():
@@ -75,8 +75,6 @@ class MicrophoneData():
         stream.close()
 
 
-
-
     def save_audio(self, name, frames, p):
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
@@ -98,8 +96,10 @@ class MicrophoneData():
         file.close()
 
     def record_session(self):
+        i = 1
         while True:
-            print('\nEnter key name to record or ESC to finish recording session: ')
+            print(f'\nEnter key name to record or ESC to finish recording session {i} : ')
+            i+=1
             name = keyboard.read_key()
             if name == 'esc':
                 self.p.terminate()
