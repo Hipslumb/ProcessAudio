@@ -3,17 +3,26 @@ import sklearn as skl
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 from sklearn.metrics import classification_report
+import joblib
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 df = pd.read_csv('dataset.csv')
-#missing = df.isnull().sum()
-print(df['key'])
 X, Y = df.drop(columns=['key']), df['key']
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.3, random_state = 18, stratify = Y)
 
+X_train, X_test, Y_train, Y_test = train_test_split(
+    X, Y, test_size=0.3, random_state=18, stratify=Y
+)
 
-model = SVC(kernel='rbf', gamma=0.1)
-model.fit(X_train, Y_train)
-Y_pred = model.predict(X_test)
-metrics = pd.DataFrame(classification_report(Y_test, Y_pred, output_dict = True))
-metrics = metrics.drop('support')
-print(metrics)
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svm', SVC(kernel='rbf', gamma='scale', C=10))
+])
+
+pipeline.fit(X_train, Y_train)
+Y_pred = pipeline.predict(X_test)
+print(classification_report(Y_test, Y_pred))
+
+# Сохраняем pipeline целиком — scaler внутри
+joblib.dump(pipeline, 'model.pkl')
