@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from feature_extracting import plot_keypress, detect_keypress, cut_peak, ste, dff_features
 
-def predict_segment(filepath, model, threshold =0.1):
+def predict_segment(filepath, model, threshold =0.25):
     
     signal, sr = sf.read(filepath)
    
@@ -35,5 +35,5 @@ def predict_segment(filepath, model, threshold =0.1):
     return result
 
 model = joblib.load('model.pkl')
-keys = predict_segment('./tests/space_1.wav', model)
+keys = predict_segment('./tests/y_1.wav', model)
 print('Нажатые клавиши:', keys)
