@@ -113,8 +113,8 @@ def detect_keypress(signal, sampling_rate, threshold = 0.2, window_ms = 20, shif
 def cut_peak(signal, sampling_rate, visualize = True):
     peak_ind = np.argmax(np.abs(signal))
 
-    start_sample = max(0, int(peak_ind - 688))
-    end_sample = min(len(signal), int(peak_ind + 1360))
+    start_sample = max(0, int(peak_ind - 300))
+    end_sample = min(len(signal), int(peak_ind + 1748))
     peak_signal = signal[start_sample:end_sample]
 
     if visualize:
@@ -131,53 +131,60 @@ def cut_peak(signal, sampling_rate, visualize = True):
 
     return peak_signal
 
-def dff_features(signal, sr, normalize=False, logarithmize=True, weight=5, offset=5):    
-
-    spectrum = np.abs(dpf.rfft(signal))
-    spectrum = spectrum[:1024]
-
-    if normalize:
-        mean_val = np.mean(spectrum)
-        min_val = np.min(spectrum)
-        max_val = np.max(spectrum)
-        spectrum = (spectrum - mean_val) / (max_val - min_val + 1e-9)
-
-    if logarithmize:
-        spectrum = spectrum * weight + offset
-        spectrum = np.log(spectrum)
-        min_val = np.min(spectrum)
-        max_val = np.max(spectrum)
-
-        spectrum = (spectrum - min_val) / (max_val - min_val) * 2 - 1
+def dff_features(signal, sr):    
 
     mfcc = librosa.feature.mfcc(y=signal.astype(float), sr=sr, n_mfcc=40)
     mfcc_features = np.concatenate([np.mean(mfcc, axis=1), np.std(mfcc, axis=1)])
 
-    return np.concatenate([spectrum, mfcc_features])  # 1024 + 80 = 1104
+
+    centroid = librosa.feature.spectral_centroid(y=signal.astype(float), sr=512)
+    bandwidth = librosa.feature.spectral_bandwidth(y=signal.astype(float), sr=512)
+    rolloff = librosa.feature.spectral_rolloff(y=signal.astype(float), sr=512)
+    zcr = librosa.feature.zero_crossing_rate(signal.astype(float))
+    
+    centr = np.array([
+        np.mean(centroid), np.std(centroid),
+        np.mean(bandwidth), np.std(bandwidth),
+        np.mean(rolloff), np.std(rolloff),
+        np.mean(zcr), np.std(zcr)
+    ])
+
+    return np.concatenate([mfcc_features, centr])  # 80 + 8 = 88
 
 
 def build_dataset(folderpath, output_csv='dataset.csv'):
+
     subfolders = [str(i) for i in range(10)] + [chr(j) for j in range(97, 124)] + ['space']
     with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
+
         writer = csv.writer(csvfile)
-        
-        # Обновлённый заголовок
-        fft_cols = [f'fft_{i}' for i in range(1024)]
         mfcc_cols = [f'mfcc_{i}' for i in range(80)]
-        header = fft_cols + mfcc_cols + ['key']
+        centroid_cols = ['centroid_mean', 'centroid_std', 'bandwidth_mean', 'bandwidth_std',
+                        'rolloff_mean', 'rolloff_std', 'zcr_mean', 'zcr_std']
+        header = mfcc_cols + centroid_cols + ['key']
         writer.writerow(header)
         
         for foldername in subfolders:
-            for i in range(1, 101):
+            for i in range(1, 1000):
                 filepath = f'{folderpath}/{foldername}_{i}.wav'
                 try:
                     signal, sr = sf.read(filepath)
                 except Exception:
                     continue
                 peak_signal = cut_peak(signal, sr, visualize=False)
-                features = dff_features(peak_signal, sr)  # передаём sr
-                if len(features) == 1104:                  # обновлённая проверка
+                # приводим все сигналы к одному масштабу
+                peak_signal = peak_signal / (np.max(np.abs(peak_signal)) + 1e-9)
+
+                features = dff_features(peak_signal, sr)
+
+                if len(features) == 88:
                     key = '_' + foldername if foldername.isdigit() else foldername
                     writer.writerow(list(features) + [key])
 
 build_dataset('dataset', 'dataset.csv')
+
+# path = r"C:\Users\Ярик\Documents\Учеба\PyProjects\ProcessAudio\dataset"
+# os.chdir(path)
+
+# for i in range(1, 121):
+#     os.rename(f"е_{i}.wav", f"t_{i}.wav")
