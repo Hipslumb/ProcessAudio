@@ -5,9 +5,15 @@ from collections import defaultdict
 import re
 from collections import Counter
 import hmmlearn
+import json
+
+TEXT_PATH = 'text/english.txt'
+CLEAN_PATH = 'text/cleaned_text.txt'
+ENCODED_PATH = 'text/encoded.txt'
+DECODED_PATH = 'text/decoded.txt'
+ORDER_PATH = 'text/order.json'
 
 def clean_text(file_path):
-
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
     
@@ -18,8 +24,8 @@ def clean_text(file_path):
     
     return text
 
-clean_text = clean_text('C:/Users/Admin/source/repos/3 sem for git/english.txt')
-with open('C:/Users/Admin/source/repos/3 sem for git/cleaned_text.txt', 'w', encoding='utf-8') as file:
+clean_text = clean_text(TEXT_PATH)
+with open(CLEAN_PATH, 'w', encoding='utf-8') as file:
     file.write(clean_text)
     
 def caesar_cipher(text, shift):
@@ -32,11 +38,10 @@ def caesar_cipher(text, shift):
             result += sim
     return result
 
-
 shift = 13
 
 encoded = caesar_cipher(clean_text,shift)
-with open('C:/Users/Admin/source/repos/3 sem for git/encoded.txt', 'w', encoding='utf-8') as file:
+with open(ENCODED_PATH, 'w', encoding='utf-8') as file:
     file.write(encoded)
 #decoded = caesar_cipher(encoded,-shift)
 
@@ -259,6 +264,91 @@ def find_close(word):
     find_close_cache[word] = result
     return result
 
+def decoding_byfrequency(text):
+    freq = get_frequency(text)
+    order = [ch for ch, _ in sorted(freq.items(),key = lambda x: x[1], reverse=True)]
+    
+    bigram_freq = get_bigrams(text)
+    sorted_bigrams = sorted(bigram_freq.items(), key=lambda x: x[1], reverse=True)
+    trigram_freq = get_trigrams(text)
+    sorted_trigrams = sorted(trigram_freq.items(), key=lambda x: x[1], reverse=True)
+    best_score = score_dictionary(text,order)
+    
+    index_of = get_index(order)
+    
+    # тут я в общем переставляю буквы в отсортированной по убывающей частоте символов очереди
+    # на основе биограмм: по наилучшей из замены первой/второй буквы
+    # на основе триограмм: меняем первые две или последние две
+    # качество замены всегда оценивается по словарю
+    for _ in range(30):
+        old_score = best_score
+        order, index_of, best_score = best_bigrams(text, sorted_bigrams, order, index_of, best_score)
+        order, index_of, best_score = best_trigrams(text, sorted_trigrams, order, index_of, best_score)
+        if best_score == old_score: break
+    best_score = score_dictionary(text,order)
+
+    # тут я в общем-то меняю буквы в очереди на основе самого словаря
+    # в длинных словах где 1-3 неверных буквы, опять же с оценкой качества замены
+    for _ in range(10):
+        old_score = best_score
+        
+        words = split_words(text, order)
+        cnt = Counter(words)
+
+        candidate_words = [w for w, c in cnt.most_common(300) if len(w) > 5]
+        
+        improved = False
+        for w in candidate_words:
+            dict_word, diff_idx = find_close(w)
+            if dict_word is None or dict_word == w:
+                continue
+        
+            for i in diff_idx:
+                if i >= len(w):
+                    continue
+                idx = index_of[w[i]]
+                for j in range(len(FREQUENCY)):
+                    if dict_word[i] == FREQUENCY[j]:
+                        new_order = order.copy()
+                        new_index = index_of.copy()
+                        swap_order(new_order, new_index, idx, j)
+                        new_score = score_dictionary(text, new_order)
+                        if new_score > best_score:
+                            order = new_order
+                            index_of = new_index
+                            best_score = new_score
+                            improved = True
+                        break
+                if improved: break
+            if improved: break
+        if not improved or best_score == old_score: break
+    
+    result = []
+    index_final = get_index(order)
+    for sim in text:
+        if 'a' <= sim <= 'z':
+            result.append(FREQUENCY[index_final[sim]])
+        else:
+            result.append(sim)
+    
+    return ''.join(result), order
+
+decoded, order = decoding_byfrequency(encoded)
+
+with open(DECODED_PATH, 'w', encoding='utf-8') as file:
+    file.write(decoded)
+
+def save_order(order, path):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(order, f)
+
+def load_order(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        order = json.load(f)
+    return order
+
+save_order(order,ORDER_PATH)
+
 def letters_reliability(text, order):
     words = split_words(text, order)
     if not words:
@@ -336,89 +426,5 @@ def letters_reliability(text, order):
         bonus = (long_good / total)*0.5
         reliability[l] = min(1.0, base + bonus)
     return reliability 
-
-def decoding_byfrequency(text):
-    freq = get_frequency(text)
-    order = [ch for ch, _ in sorted(freq.items(),key = lambda x: x[1], reverse=True)]
-    
-    bigram_freq = get_bigrams(text)
-    sorted_bigrams = sorted(bigram_freq.items(), key=lambda x: x[1], reverse=True)
-    trigram_freq = get_trigrams(text)
-    sorted_trigrams = sorted(trigram_freq.items(), key=lambda x: x[1], reverse=True)
-    best_score = score_dictionary(text,order)
-    
-    index_of = get_index(order)
-    
-    # тут я в общем переставляю буквы в отсортированной по убывающей частоте символов очереди
-    # на основе биограмм: по наилучшей из замены первой/второй буквы
-    # на основе триограмм: меняем первые две или последние две
-    # качество замены всегда оценивается по словарю
-    for _ in range(30):
-        old_score = best_score
-        order, index_of, best_score = best_bigrams(text, sorted_bigrams, order, index_of, best_score)
-        order, index_of, best_score = best_trigrams(text, sorted_trigrams, order, index_of, best_score)
-        if best_score == old_score: break
-    best_score = score_dictionary(text,order)
-    # reliability = letters_reliability(text, order)
-    
-    # reliable_letters = set()
-    # suspect_letters = set()
-    # for l in order:
-    #     r = reliability.get(l, 0.5)
-    #     if r >= 0.85:
-    #         reliable_letters.add(l)
-    #     elif r < 0.5:
-    #         suspect_letters.add(l)
-
-    # тут я в общем-то меняю буквы в очереди на основе самого словаря
-    # в длинных словах где 1-3 неверных буквы, опять же с оценкой качества замены
-    for _ in range(10):
-        old_score = best_score
-        
-        words = split_words(text, order)
-        cnt = Counter(words)
-
-        candidate_words = [w for w, c in cnt.most_common(300) if len(w) > 5]
-        
-        improved = False
-        for w in candidate_words:
-            dict_word, diff_idx = find_close(w)
-            if dict_word is None or dict_word == w:
-                continue
-        
-            for i in diff_idx:
-                if i >= len(w):
-                    continue
-                idx = index_of[w[i]]
-                for j in range(len(FREQUENCY)):
-                    if dict_word[i] == FREQUENCY[j]:
-                        new_order = order.copy()
-                        new_index = index_of.copy()
-                        swap_order(new_order, new_index, idx, j)
-                        new_score = score_dictionary(text, new_order)
-                        if new_score > best_score:
-                            order = new_order
-                            index_of = new_index
-                            best_score = new_score
-                            improved = True
-                        break
-                if improved: break
-            if improved: break
-        if not improved or best_score == old_score: break
-    
-    result = []
-    index_final = get_index(order)
-    for sim in text:
-        if 'a' <= sim <= 'z':
-            result.append(FREQUENCY[index_final[sim]])
-        else:
-            result.append(sim)
-    
-    return ''.join(result)
-
-decoded = decoding_byfrequency(encoded)
-
-with open('C:/Users/Admin/source/repos/3 sem for git/decoded.txt', 'w', encoding='utf-8') as file:
-    file.write(decoded)
 
 # марковская цепь модель, алг. витерби?

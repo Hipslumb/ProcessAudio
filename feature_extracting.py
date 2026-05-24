@@ -78,7 +78,6 @@ def ste(signal, sampling_rate, window_ms = 20, shift_ms = 10, smooth = False, vi
 
 
 def detect_keypress(signal, sampling_rate, threshold = 0.2, window_ms = 20, shift_ms = 10, pad_ms = 40, visualize = True):
-   
     ste_vals = ste(signal, sampling_rate, window_ms, shift_ms, False, False)
     key_frames = np.asarray(ste_vals > np.max(ste_vals) * threshold).nonzero()[0]
 

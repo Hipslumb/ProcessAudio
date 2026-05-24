@@ -6,13 +6,12 @@ from feature_extracting import plot_keypress, detect_keypress, cut_peak, ste, df
 def predict_segment(filepath, model, threshold =0.4):
     
     signal, sr = sf.read(filepath)
-   
     ste_vals = ste(signal, sr, window_ms=20, shift_ms=10)
 
     from scipy.signal import find_peaks
     peaks, _ = find_peaks(ste_vals, 
                           height=np.max(ste_vals) * threshold,
-                          distance=30)
+                        distance=30)
     
 
     print(f'Длина записи: {len(signal)/sr:.1f} сек')
