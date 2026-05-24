@@ -35,5 +35,12 @@ def predict_segment(filepath, model, threshold =0.25):
     return result
 
 model = joblib.load('model.pkl')
-keys = predict_segment('./tests/y_1.wav', model)
+keys = predict_segment('./tests/a_1.wav', model)
+
+processed_keys = [' ' if key == 'space' else key for key in keys]
+corrected_text = ''.join(processed_keys)
+
+with open('keys.txt', 'w', encoding='utf-8') as file:
+    file.write(corrected_text)
+
 print('Нажатые клавиши:', keys)
