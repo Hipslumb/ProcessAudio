@@ -1,5 +1,5 @@
 from symspellpy import SymSpell, Verbosity
-from freq import DECODED_PATH
+DECODED_PATH = 'text/decoded.txt'
 
 AI_PATH = 'text/ai_decoded.txt'
 

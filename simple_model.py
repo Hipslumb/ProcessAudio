@@ -3,20 +3,17 @@ import soundfile as sf
 import numpy as np
 import matplotlib.pyplot as plt
 from feature_extracting import plot_keypress, detect_keypress, cut_peak, ste, dff_features
+from scipy.signal import find_peaks
 
 def predict_segment(filepath, model, threshold =0.2):
     
     signal, sr = sf.read(filepath)
     ste_vals = ste(signal, sr, window_ms=20, shift_ms=10)
 
-    from scipy.signal import find_peaks
-    peaks, _ = find_peaks(ste_vals, 
-                          height=np.max(ste_vals) * threshold,
-<<<<<<< HEAD
-                        distance=30)
-=======
-                          distance=25)
->>>>>>> yarikbranch
+    noise_floor = np.percentile(ste_vals, 90)
+    # height=np.max(ste_vals) * threshold
+
+    peaks, _ = find_peaks(ste_vals,height=noise_floor * 6, distance=30)
     
     result = []
 
@@ -38,7 +35,7 @@ def predict_segment(filepath, model, threshold =0.2):
     return result
 
 model = joblib.load('model.pkl')
-keys = predict_segment('./tests/h_1.wav', model)
+keys = predict_segment('./text/h_1.wav', model)
 
 processed_keys = [' ' if key == 'space' else key for key in keys]
 corrected_text = ''.join(processed_keys)
