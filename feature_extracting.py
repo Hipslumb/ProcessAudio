@@ -135,7 +135,6 @@ def dff_features(signal, sr):
     mfcc = librosa.feature.mfcc(y=signal.astype(float), sr=sr, n_mfcc=40)
     mfcc_features = np.concatenate([np.mean(mfcc, axis=1), np.std(mfcc, axis=1)])
 
-
     centroid = librosa.feature.spectral_centroid(y=signal.astype(float), sr=512)
     bandwidth = librosa.feature.spectral_bandwidth(y=signal.astype(float), sr=512)
     rolloff = librosa.feature.spectral_rolloff(y=signal.astype(float), sr=512)
@@ -149,7 +148,6 @@ def dff_features(signal, sr):
     ])
 
     return np.concatenate([mfcc_features, centr])  # 80 + 8 = 88
-
 
 def build_dataset(folderpath, output_csv='dataset.csv'):
 
