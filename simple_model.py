@@ -3,6 +3,7 @@ import soundfile as sf
 import numpy as np
 import matplotlib.pyplot as plt
 from feature_extracting import plot_keypress, detect_keypress, cut_peak, ste, dff_features
+from scipy.signal import find_peaks
 
 def predict_segment(filepath, model, threshold =0.2):
     
@@ -10,10 +11,13 @@ def predict_segment(filepath, model, threshold =0.2):
    
     ste_vals = ste(signal, sr, window_ms=20, shift_ms=10)
 
-    from scipy.signal import find_peaks
+
+    noise_floor = np.percentile(ste_vals, 90)
+    # height=np.max(ste_vals) * threshold
+
     peaks, _ = find_peaks(ste_vals, 
-                          height=np.max(ste_vals) * threshold,
-                          distance=25)
+                          height=noise_floor * 6,
+                          distance=30)
     
     result = []
 
@@ -35,12 +39,11 @@ def predict_segment(filepath, model, threshold =0.2):
     return result
 
 model = joblib.load('model.pkl')
-keys = predict_segment('./tests/h_1.wav', model)
-
-processed_keys = [' ' if key == 'space' else key for key in keys]
-corrected_text = ''.join(processed_keys)
-
-with open('keys.txt', 'w', encoding='utf-8') as file:
-    file.write(corrected_text)
-
+keys = predict_segment('./tests/m_3.wav', model)
 print('Нажатые клавиши:', keys)
+
+# processed_keys = [' ' if key == 'space' else key for key in keys]
+# corrected_text = ''.join(processed_keys)
+
+# with open('keys.txt', 'w', encoding='utf-8') as file:
+#     file.write(corrected_text)
