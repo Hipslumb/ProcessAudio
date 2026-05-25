@@ -16,15 +16,15 @@ CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 5
-
+RECORD_SECONDS = 7
 
 class MicrophoneData():
 
     def __init__(self, dir):
         self.dir = dir
         self.p = pyaudio.PyAudio()
-        self.device = self.select_micro()
+        # self.device = self.select_micro()
+        self.device = 0
         time.sleep(0.5)
         self.record_session()
 
@@ -63,13 +63,11 @@ class MicrophoneData():
         frames = []
 
         total_chunks = int((RATE / CHUNK) * RECORD_SECONDS)
-        time.sleep(0.1)
 
         for _ in range(total_chunks):
             data = stream.read(CHUNK, exception_on_overflow=False)
             frames.append(data)
         self.save_audio(name, frames, self.p)
-        time.sleep(0.5)
 
         stream.stop_stream()
         stream.close()
@@ -108,7 +106,7 @@ class MicrophoneData():
                 self.record(name)
 
 
-OUT_DIR = input('Give output directory a name: ')
+# OUT_DIR = input('Give output directory a name: ')
 
-MicrophoneData(OUT_DIR)
+MicrophoneData('tests')
 
