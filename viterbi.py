@@ -1,7 +1,17 @@
 import numpy as np
 from hmmlearn import hmm
-from freq import letters_reliability, load_order, DECODED_PATH, ORDER_PATH
-AFTER_PATH = 'text/after_viterbi.txt'
+
+# словарь оч медленный пупупууппупу
+import nltk
+from nltk.corpus import words
+from collections import defaultdict, Counter
+import re
+from freq import DECODED_PATH, ENCODED_PATH, CLEAN_PATH
+from parametrs import percent
+# текст после декодирования частотами, зашифрованный текст, оригинальный текст
+
+# текст после этого Витерби
+AFTER_PATH = 'text/a_viterbi.txt'
 
 def get_weights(arr):
     weights = {}
@@ -9,20 +19,114 @@ def get_weights(arr):
         weights[smf] = len(arr) - rank + 1
     return weights
 
-FREQUENCY = ['e','t','a','o','i','n','s','h','r','d','l','c','u','m','w','f','g','y','p','b','v','k','j','x','q','z',' ']
+def get_frequency(text):
+    freq = {}
+    for sim in text:
+        if 'a' <= sim <= 'z' or sim == ' ':
+            if sim not in freq:
+                freq[sim] = 0
+            freq[sim] += 1
+    return freq
 
-BIGRAMS = [
-    'th', 'he', 'in', 'er', 'an', 're', 'nd', 'at', 'on', 'nt',
-    'ha', 'es', 'st', 'en', 'ed', 'to', 'it', 'ou', 'ea', 'hi',
-    'is', 'or', 'ti', 'as', 'te', 'et', 'ng', 'of', 'al', 'de',
-    ' t', ' a', ' i', ' w', ' s', 'e ', 't ', 's ', 'd ', 'n ', 'y ', 'r ', 'f ', 'm '
-]
+def get_bigrams(text):
+    bigrams = {}
+    for i in range(len(text) - 1):
+        if ('a' <= text[i] <= 'z' or text[i] == ' ') and ('a' <= text[i+1] <= 'z' or text[i+1] == ' '):
+            bg = text[i] + text[i+1]
+            bigrams[bg] = bigrams.get(bg, 0) + 1
+    return bigrams
 
+if __name__ == '__main__':
+    nltk.download('words')
+    dictionary = set(words.words())
+    dict_by_len = defaultdict(list)
+    for w in dictionary:
+        dict_by_len[len(w)].append(w)
+
+def letters_reliability(text):
+    words = re.findall(r'[a-z]+', text.lower())
+    if not words:
+        return {}
+
+    cnt = Counter(words)
+    words_list = list(cnt.keys())
+    
+    good_words = set()
+    close_words = {}
+    for w in words_list:
+        n = len(w)
+        if n < 4:
+            continue
+        candidates = dict_by_len[n]
+        if w in candidates:
+            good_words.add(w)
+            continue
+
+        best_word = None
+        best_diff_idx = None
+        best_diff = 4  # до 3 отличий
+
+        for dict_word in candidates:
+            diff_idx = []
+            for i in range(n):
+                if dict_word[i] != w[i]:
+                    diff_idx.append(i)
+                    if len(diff_idx) > 3:
+                        break
+            d = len(diff_idx)
+            if 1 <= d <= 3 and d < best_diff:
+                best_diff = d
+                best_word = dict_word
+                best_diff_idx = diff_idx
+                if d == 1:
+                    break
+        if best_word is not None and best_diff <= 3:
+            close_words[w] = best_diff_idx
+
+    letter_words = defaultdict(list)
+    for w in words_list:
+        for ch in set(w):
+            letter_words[ch].append(w)
+            
+    reliability = {}
+    for l, ws in letter_words.items():
+        total = sum(cnt[w] for w in ws)
+        if total < 5:
+            reliability[l] = 0.5
+            continue
+        good = 0
+        long_good = 0
+        for w in ws:
+            w_count = cnt[w]
+            n = len(w)
+            if w in good_words:
+                good += w_count
+                if n > 7:
+                    long_good += w_count
+            elif w in close_words:
+                bad_here = False
+                for i in close_words[w]:
+                    if i < n and w[i] == l:
+                        bad_here = True
+                        break
+                if not bad_here:
+                    good += w_count
+                    if n > 7:
+                        long_good += w_count
+        if total == 0:
+            reliability[l] = 0.5
+            continue
+        base = good / total
+        bonus = (long_good / total)*0.5
+        reliability[l] = min(1.0, base + bonus)
+    return reliability 
+
+# переход от буквы к букве
 def transition_matrix(bg_w):
     alphabet = 'abcdefghijklmnopqrstuvwxyz '
     n = len(alphabet)
     
-    A = np.ones((n, n)) * 0.0001 # переход от буквы к букве
+    A = np.ones((n, n)) * 0.0001
     for i, ch1 in enumerate(alphabet):
         for j, ch2 in enumerate(alphabet):
             bg = ch1 + ch2
@@ -43,9 +147,10 @@ def start_probs(letter_w):
     pi = pi / pi.sum()
     return pi
 
-def use_viterbi(text,order):
-    letter_w = get_weights(FREQUENCY)
-    bg_w = get_weights(BIGRAMS)
+# оригинальный текст чисто для сбора частот биграмм и букв
+def use_viterbi(orig_text, text):
+    letter_w = get_weights(get_frequency(orig_text))
+    bg_w = get_weights(get_bigrams(orig_text))
     
     model = hmm.CategoricalHMM(n_components=27, init_params='')
     A = transition_matrix(bg_w)
@@ -56,20 +161,17 @@ def use_viterbi(text,order):
     alphabet = 'abcdefghijklmnopqrstuvwxyz '
     n_states = len(alphabet)
     n_symbols = n_states
-    # same_p = 0.97
-    # other_p = (1.0 - same_p) / (n_symbols - 1)
-        # emission = np.full((n_states, n_symbols), other_p)
-    # np.fill_diagonal(emission, same_p)
-    # model.emissionprob_ = emission
     
-    reliab = letters_reliability(text.lower(), order)
+    reliab = letters_reliability(text)
     
-    # P(наблюдаем символ j | истинное состояние/буква i)
+    min_p = 0.7
+    max_p = 0.999
+    # ???????
     emission = np.zeros((n_states, n_symbols), dtype=float)
     for i, ch in enumerate(alphabet):
         r = reliab.get(ch, 0.5)
-        same_p = 0.9 + 0.029 * r
-        same_p = min(max(same_p, 0.97), 0.999)
+        same_p = min_p + (max_p - min_p) * r
+        same_p = min(max(same_p, min_p), max_p)
         other_p = (1.0 - same_p) / (n_symbols - 1)
         emission[i, :] = other_p
         emission[i, i] = same_p
@@ -89,14 +191,18 @@ def use_viterbi(text,order):
     decoded = ''.join(to_letters[s] for s in hidden_text)
     return decoded
 
+if __name__ == '__main__':
+    decoded = ""
+    with open(DECODED_PATH, 'r', encoding='utf-8') as file:
+        decoded = file.read()
 
-print ("HI")
-decoded = ""
-with open(DECODED_PATH, 'r', encoding='utf-8') as file:
-    decoded = file.read()
-
-order = load_order(ORDER_PATH)
-text = use_viterbi(decoded,order)
-
-with open(AFTER_PATH, 'w', encoding='utf-8') as file:
-    file.write(text)
+    clean = ""
+    with open(CLEAN_PATH, 'r', encoding='utf-8') as file:
+        clean = file.read()
+    
+    text = use_viterbi(clean,decoded)
+    with open(AFTER_PATH, 'w', encoding='utf-8') as file:
+        file.write(text)
+    
+    print("ПОСЛЕ ВИТЕРБИ ")
+    pers = percent(clean, text)

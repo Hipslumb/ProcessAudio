@@ -4,46 +4,11 @@ from nltk.corpus import words
 from collections import defaultdict
 import re
 from collections import Counter
-import hmmlearn
-import json
-
+from parametrs import percent
 TEXT_PATH = 'text/english.txt'
 CLEAN_PATH = 'text/cleaned_text.txt'
 ENCODED_PATH = 'text/encoded.txt'
 DECODED_PATH = 'text/decoded.txt'
-ORDER_PATH = 'text/order.json'
-
-def clean_text(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        text = file.read()
-    
-    text = text.lower()
-    text = re.sub(r'[^a-z\s]', '', text)
-    
-    text = re.sub(r'\s+', ' ', text)
-    
-    return text
-
-clean_text = clean_text(TEXT_PATH)
-with open(CLEAN_PATH, 'w', encoding='utf-8') as file:
-    file.write(clean_text)
-    
-def caesar_cipher(text, shift):
-    result = ""
-    for sim in text:
-        if sim.isalpha():
-            new_sim = chr((ord(sim) - ord('a') + shift) % 26 + ord('a') )
-            result += new_sim
-        else:
-            result += sim
-    return result
-
-shift = 13
-
-encoded = caesar_cipher(clean_text,shift)
-with open(ENCODED_PATH, 'w', encoding='utf-8') as file:
-    file.write(encoded)
-#decoded = caesar_cipher(encoded,-shift)
 
 FREQUENCY = [
     'e', 't', 'a', 'o', 'i', 'n', 's', 'h', 'r', 'd', 
@@ -66,11 +31,11 @@ def swap_order(order, index_of, i, j):
     order[i], order[j] = order[j], order[i]
     index_of[order[i]] = i
     index_of[order[j]] = j
-    
+
+# ток самые частые лучше работают
 BIGRAMS = [
     'th', 'he', 'in', 'er', 'an', 're', 'nd', 'at', 'on', 'nt',
-    'ha', 'es', 'st', 'en', 'ed', 'to', 'it'
-]
+    'ha', 'es', 'st', 'en', 'ed', 'to', 'it']
 
 def get_bigrams(text):
     bigrams = {}
@@ -189,12 +154,12 @@ def best_trigrams(text, sorted_trigrams, order, index_of, score_levl):
                 k += 1
     return order, index_of, score_levl
 
-nltk.download('words')
-dictionary = set(words.words())
-dict_by_len = defaultdict(list)
-for w in dictionary:
-    dict_by_len[len(w)].append(w)
-    
+if __name__ == '__main__':
+    nltk.download('words')
+    dictionary = set(words.words())
+    dict_by_len = defaultdict(list)
+    for w in dictionary:
+        dict_by_len[len(w)].append(w)
 
 def split_words(text,order):
     decoded = []
@@ -331,100 +296,24 @@ def decoding_byfrequency(text):
         else:
             result.append(sim)
     
-    return ''.join(result), order
+    return ''.join(result)
 
-decoded, order = decoding_byfrequency(encoded)
-
-with open(DECODED_PATH, 'w', encoding='utf-8') as file:
-    file.write(decoded)
-
-def save_order(order, path):
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(order, f)
-
-def load_order(path):
-    with open(path, 'r', encoding='utf-8') as f:
-        order = json.load(f)
-    return order
-
-save_order(order,ORDER_PATH)
-
-def letters_reliability(text, order):
-    words = split_words(text, order)
-    if not words:
-        return {}
-
-    cnt = Counter(words)
-    words_list = list(cnt.keys())
+if __name__ == '__main__':
+    encoded = ""
+    with open(ENCODED_PATH, 'r', encoding='utf-8') as file:
+        encoded = file.read()
     
-    good_words = set()
-    close_words = {}
-    for w in words_list:
-        n = len(w)
-        if n < 4:
-            continue
-        candidates = dict_by_len[n]
-        if w in candidates:
-            good_words.add(w)
-            continue
+    decoded = decoding_byfrequency(encoded)
 
-        best_word = None
-        best_diff_idx = None
-        best_diff = 4  # до 3 отличий
+    with open(DECODED_PATH, 'w', encoding='utf-8') as file:
+        file.write(decoded)
+    
+    clean = ""
+    with open(CLEAN_PATH, 'r', encoding='utf-8') as file:
+        clean = file.read()
+    
+    print("ПОСЛЕ ЧАСТОТ И СЛОВАРЯ ")
+    pers = percent(clean, decoded)
 
-        for dict_word in candidates:
-            diff_idx = []
-            for i in range(n):
-                if dict_word[i] != w[i]:
-                    diff_idx.append(i)
-                    if len(diff_idx) > 3:
-                        break
-            d = len(diff_idx)
-            if 1 <= d <= 3 and d < best_diff:
-                best_diff = d
-                best_word = dict_word
-                best_diff_idx = diff_idx
-                if d == 1:
-                    break
-        if best_word is not None and best_diff <= 3:
-            close_words[w] = best_diff_idx
-
-    letter_words = defaultdict(list)
-    for w in words_list:
-        for ch in set(w):
-            letter_words[ch].append(w)
-            
-    reliability = {}
-    for l, ws in letter_words.items():
-        total = sum(cnt[w] for w in ws)
-        if total < 5:
-            reliability[l] = 0.5
-            continue
-        good = 0
-        long_good = 0
-        for w in ws:
-            w_count = cnt[w]
-            n = len(w)
-            if w in good_words:
-                good += w_count
-                if n > 7:
-                    long_good += w_count
-            elif w in close_words:
-                bad_here = False
-                for i in close_words[w]:
-                    if i < n and w[i] == l:
-                        bad_here = True
-                        break
-                if not bad_here:
-                    good += w_count
-                    if n > 7:
-                        long_good += w_count
-        if total == 0:
-            reliability[l] = 0.5
-            continue
-        base = good / total
-        bonus = (long_good / total)*0.5
-        reliability[l] = min(1.0, base + bonus)
-    return reliability 
 
 # марковская цепь модель, алг. витерби?
