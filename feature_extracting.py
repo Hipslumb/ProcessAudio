@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import soundfile as sf
 import matplotlib.pyplot as plt
 import scipy.signal as sgn
@@ -78,6 +79,7 @@ def ste(signal, sampling_rate, window_ms = 20, shift_ms = 10, smooth = False, vi
 
 
 def detect_keypress(signal, sampling_rate, threshold = 0.2, window_ms = 20, shift_ms = 10, pad_ms = 40, visualize = True):
+   
     ste_vals = ste(signal, sampling_rate, window_ms, shift_ms, False, False)
     key_frames = np.asarray(ste_vals > np.max(ste_vals) * threshold).nonzero()[0]
 
@@ -92,7 +94,6 @@ def detect_keypress(signal, sampling_rate, threshold = 0.2, window_ms = 20, shif
     end_sample = min(end_frame * shift_len + window_len + pad_len, len(signal))
 
     press_signal = signal[start_sample:end_sample]
-
 
     if visualize:
         t_signal = np.arange(len(signal)) / sampling_rate
@@ -178,10 +179,47 @@ def build_dataset(folderpath, output_csv='dataset.csv'):
                     key = '_' + foldername if foldername.isdigit() else foldername
                     writer.writerow(list(features) + [key])
 
-build_dataset('dataset', 'dataset.csv')
+# def add_to_dataset(folderpath, key_name, csv_path='dataset.csv'):
 
-# path = r"C:\Users\Ярик\Documents\Учеба\PyProjects\ProcessAudio\dataset"
+#     df_existing = pd.read_csv('dataset.csv')
+#     print(f'Записей до: {len(df_existing)}')
+
+#     new_rows = []
+#     i = 1
+#     while True:
+#         filepath = f'{folderpath}/{key_name}_{i}.wav'
+#         try:
+#             signal, sr = sf.read(filepath)
+#         except Exception:
+#             break
+#         peak_signal = cut_peak(signal, sr, visualize=False)
+#         peak_signal = peak_signal / (np.max(np.abs(peak_signal)) + 1e-9)
+
+#         features = dff_features(peak_signal, sr)
+
+#         if len(features) == 88:
+#             row = list(features) + [key_name]
+#             new_rows.append(row)
+#             print(f'  Добавлено: {key_name}_{i}.wav')
+#         i += 1
+
+#         if new_rows:
+#             df_new = pd.DataFrame(new_rows, columns=df_existing.columns)
+#             df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+#             df_combined.to_csv(csv_path, index=False)
+#             print(f'Записей после: {len(df_combined)}')
+#         else:
+#             print('Новых файлов не найдено')
+
+
+# build_dataset('dataset', 'dataset.csv')
+
+# letters =  [chr(j) for j in range(97, 124)] + ['space']
+# for let in letters:
+#     add_to_dataset('newdata', let)
+
+# path = r"C:\Users\Ярик\Documents\Учеба\PyProjects\ProcessAudio\newdata"
 # os.chdir(path)
 
-# for i in range(1, 121):
-#     os.rename(f"е_{i}.wav", f"t_{i}.wav")
+# for i in range(1, 11):
+#     os.rename(f"ы_{i}.wav", f"s_{i}.wav")

@@ -1,11 +1,10 @@
 from viterbi import use_viterbi
 from parametrs import percent
+from simple_model import predict_segment
 
-path = input("Введите имя .wav файла для расшифровки из папки WAV")
+path = input("Введите имя .wav файла для расшифровки из папки WAV: ")
 decoded_path = f"WAV/{path}.wav"
-# проверь ток существование файла как у меня ниже!!!!!!!!!
 
-# исходные текста надо с тем же названием что и WAV сохранить оке доке??????
 clean_path = f"ORIG/{path}.txt"
 clean = ""
 try: 
@@ -14,13 +13,16 @@ try:
 except FileNotFoundError:
     print("Файл {clean_path} не существует!")
 
-# decoded = тут получи крч string текст из записи.
-# перед этим все свои записи загрузи в папку WAV в .wav формате конечно
+decoded = predict_segment(decoded_path)
+decoded_audio_path = f"audio/decoded_{path}.txt"
+
+with open(decoded_audio_path, 'w', encoding='utf-8') as file:
+    file.write(decoded)
 
 after_path = f"TXT/{path}.txt"
 
 before_p = percent(clean, decoded)
-text = use_viterbi(clean,decoded)
+text = use_viterbi(clean, decoded)
 after_p = percent(clean, text)
 
 if after_p < before_p:
