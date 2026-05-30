@@ -13,32 +13,24 @@ from parametrs import percent
 # текст после этого Витерби
 AFTER_PATH = 'text/a_viterbi.txt'
 
-def get_weights(arr):
-    weights = {}
-    for rank, smf in enumerate(arr):
-        weights[smf] = len(arr) - rank + 1
-    return weights
-
-def get_frequency(text):
+def get_unigrams(text):
     freq = {}
     for sim in text:
-        if 'a' <= sim <= 'z' or sim == ' ':
-            if sim not in freq:
-                freq[sim] = 0
-            freq[sim] += 1
+        if sim not in freq:
+            freq[sim] = 0
+        freq[sim] += 1
     return freq
 
 def get_bigrams(text):
     bigrams = {}
     for i in range(len(text) - 1):
-        if ('a' <= text[i] <= 'z' or text[i] == ' ') and ('a' <= text[i+1] <= 'z' or text[i+1] == ' '):
-            bg = text[i] + text[i+1]
-            bigrams[bg] = bigrams.get(bg, 0) + 1
+        bg = text[i] + text[i+1]
+        bigrams[bg] = bigrams.get(bg, 0) + 1
     return bigrams
 
 if __name__ == '__main__':
     nltk.download('words')
-    dictionary = set(words.words())
+    dictionary = sorted(set(words.words()))
     dict_by_len = defaultdict(list)
     for w in dictionary:
         dict_by_len[len(w)].append(w)
@@ -78,8 +70,8 @@ def letters_reliability(text):
                 best_diff = d
                 best_word = dict_word
                 best_diff_idx = diff_idx
-                if d == 1:
-                    break
+                # if d == 1:
+                #     break
         if best_word is not None and best_diff <= 3:
             close_words[w] = best_diff_idx
 
@@ -122,39 +114,43 @@ def letters_reliability(text):
     return reliability 
 
 # переход от буквы к букве
-def transition_matrix(bg_w):
+def transition_matrix(orig_text):
     alphabet = 'abcdefghijklmnopqrstuvwxyz '
     n = len(alphabet)
+    bigrams = get_bigrams(orig_text)
     
     A = np.ones((n, n)) * 0.0001
-    for i, ch1 in enumerate(alphabet):
-        for j, ch2 in enumerate(alphabet):
-            bg = ch1 + ch2
-            if bg in bg_w:
-                A[i, j] = bg_w[bg] 
+    for bg, freq in bigrams.items():
+        ch1, ch2 = bg[0], bg[1]
+    # на всякий случай, но мы подаём чистый текст!!!
+        if ch1 not in alphabet or ch2 not in alphabet:
+            continue
+        i = alphabet.index(ch1)
+        j = alphabet.index(ch2)
+        A[i,j] += freq
     A[26,26] = 0
-        
+
     for i in range(n):
         row_sum = A[i].sum()
         if row_sum > 0:
             A[i] /= row_sum
-
     return A
 
-def start_probs(letter_w):
+def start_probs(orig_text):
     alphabet = 'abcdefghijklmnopqrstuvwxyz '
-    pi = np.array([letter_w.get(ch, 1) for ch in alphabet])
-    pi = pi / pi.sum()
+    unigrams = get_unigrams(orig_text)
+    pi = []
+    pi.extend(unigrams.get(ch, 1) for ch in alphabet)
+    pi = np.array(pi, dtype=float)
+    pi /= pi.sum()
     return pi
 
 # оригинальный текст чисто для сбора частот биграмм и букв
 def use_viterbi(orig_text, text):
-    letter_w = get_weights(get_frequency(orig_text))
-    bg_w = get_weights(get_bigrams(orig_text))
     
     model = hmm.CategoricalHMM(n_components=27, init_params='')
-    A = transition_matrix(bg_w)
-    pi = start_probs(letter_w)
+    A = transition_matrix(orig_text)
+    pi = start_probs(orig_text)
     model.startprob_ = pi
     model.transmat_ = A
     
@@ -164,9 +160,8 @@ def use_viterbi(orig_text, text):
     
     reliab = letters_reliability(text)
     
-    min_p = 0.7
+    min_p = 0.5
     max_p = 0.999
-    # ???????
     emission = np.zeros((n_states, n_symbols), dtype=float)
     for i, ch in enumerate(alphabet):
         r = reliab.get(ch, 0.5)
@@ -179,6 +174,8 @@ def use_viterbi(orig_text, text):
     space_idx = alphabet.index(' ')
     emission[space_idx, :] = (1.0 - 0.9999) / (n_symbols - 1)
     emission[space_idx, space_idx] = 0.9999
+    row_sums = emission.sum(axis=1, keepdims=True)
+    emission = emission / row_sums
     model.emissionprob_ = emission
     
     to_idx = {ch: i for i, ch in enumerate(alphabet)}
@@ -200,9 +197,18 @@ if __name__ == '__main__':
     with open(CLEAN_PATH, 'r', encoding='utf-8') as file:
         clean = file.read()
     
+    before_p = percent(clean, decoded)
     text = use_viterbi(clean,decoded)
+    after_p = percent(clean, text)
+    if after_p < before_p:
+        print(f"Витерби ухудшил: было {before_p:.2f}%, стало {after_p:.2f}% — откатываемся.")
+        text = decoded
+        final_p = before_p
+    else:
+        print(f"Витерби улучшил/не ухудшил: было {before_p:.2f}%, стало {after_p:.2f}%.")
+        final_p = after_p
+
     with open(AFTER_PATH, 'w', encoding='utf-8') as file:
         file.write(text)
-    
-    print("ПОСЛЕ ВИТЕРБИ ")
-    pers = percent(clean, text)
+
+    print(f"Итоговая точность: {final_p:.2f}%")
