@@ -6,7 +6,7 @@ decoded_path = f"WAV/{path}.wav"
 # проверь ток существование файла как у меня ниже!!!!!!!!!
 
 # исходные текста надо с тем же названием что и WAV сохранить оке доке??????
-clean_path = f"text/{path}.txt"
+clean_path = f"ORIG/{path}.txt"
 clean = ""
 try: 
     with open(clean_path, 'r', encoding='utf-8') as file:
