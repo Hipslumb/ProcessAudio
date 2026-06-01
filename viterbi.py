@@ -28,12 +28,11 @@ def get_bigrams(text):
         bigrams[bg] = bigrams.get(bg, 0) + 1
     return bigrams
 
-if __name__ == '__main__':
-    nltk.download('words')
-    dictionary = sorted(set(words.words()))
-    dict_by_len = defaultdict(list)
-    for w in dictionary:
-        dict_by_len[len(w)].append(w)
+nltk.download('words')
+dictionary = sorted(set(words.words()))
+dict_by_len = defaultdict(list)
+for w in dictionary:
+    dict_by_len[len(w)].append(w)
 
 def letters_reliability(text):
     words = re.findall(r'[a-z]+', text.lower())

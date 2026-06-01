@@ -17,6 +17,30 @@ def percent(orig, decoded):
     print(f"Восстановление текста: {pers} %")
     return pers
 
+def percent_bywords(orig, decoded):
+    words_orig = re.findall(r'[a-z]+', orig.lower())
+    words_decoded = re.findall(r'[a-z]+', decoded.lower())
+
+    match = 0
+    n = 0
+    for i in range(min(len(words_orig), len(words_decoded))):
+        orig_word = words_orig[i]
+        decoded_word = words_decoded[i]
+
+        for j in range(min(len(orig_word), len(decoded_word))):
+            if orig_word[j] == decoded_word[j]:
+                match += 1
+            n += 1
+    if n == 0:
+        print("Нет букв для сравнения")
+        return 0.0
+    pers = match * 100.0 / n
+    print(f"Восстановление текста: {pers} %")
+    return pers
+
+
+        
+
 def clean_text(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()

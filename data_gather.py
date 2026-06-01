@@ -1,7 +1,6 @@
 import sys
 import locale
 import time
-
 import pyaudio
 import wave
 import os
@@ -9,21 +8,20 @@ import keyboard
 import csv
 import numpy as np
 from datetime import datetime
-
 #sys.stdout.reconfigure(encoding='cp1251')
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 5
+RECORD_SECONDS = 1.5
 
 class MicrophoneData():
-
     def __init__(self, dir):
         self.dir = dir
         self.p = pyaudio.PyAudio()
-        self.device = self.select_micro()
+        # self.device = self.select_micro()
+        self.device = 0
         time.sleep(0.5)
         self.record_session()
 
@@ -101,11 +99,10 @@ class MicrophoneData():
             if name == 'esc':
                 self.p.terminate()
                 break
-            else:
+            else:              
                 self.record(name)
 
 
-OUT_DIR = input('Give output directory a name: ')
+# OUT_DIR = input('Give output directory a name: ')
 
-MicrophoneData(OUT_DIR)
-
+MicrophoneData('newdata')

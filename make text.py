@@ -10,7 +10,7 @@ def text_to_wav(text, wav_folder, output_file, silence_ms=0):
         if char == ' ':
             filename = f'{wav_folder}/space_1.wav'
         elif char.isalpha():
-            filename = f'{wav_folder}/{char}_5.wav'
+            filename = f'{wav_folder}/{char}_2.wav'
         else:
             continue  
         
